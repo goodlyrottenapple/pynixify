@@ -53,8 +53,10 @@ class PyPIPackage(Package):
     pypi_name: str
     pypi_cache: ABCPyPICache
     local_source: Optional[Path] = None
+    dummy: bool = False
 
     async def source(self, extra_args=[]) -> Path:
+        if self.dummy: return Path('./')
         if self.local_source is not None:
             return self.local_source
         downloaded_file: Path = await self.pypi_cache.fetch_url(

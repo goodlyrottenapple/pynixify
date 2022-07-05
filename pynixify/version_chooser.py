@@ -49,6 +49,9 @@ class VersionChooser:
     async def require(self, r: Requirement, coming_from: Optional[Package]=None):
         pkg: Package
 
+        if coming_from is not None and coming_from.dummy:
+            return
+
         if r.marker and not r.marker.evaluate():
             return
 
@@ -100,6 +103,7 @@ class VersionChooser:
         except KeyError:
             try:
                 for p in self.nixpkgs_data.from_requirement(r):
+                    print(p)
                     pkgs.append(p)
             except PackageNotFound:
                 found_nixpkgs = False

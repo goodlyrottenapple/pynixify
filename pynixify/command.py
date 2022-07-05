@@ -23,7 +23,7 @@ from urllib.parse import urlparse
 from typing import List, Dict, Optional, Tuple
 from pkg_resources import parse_requirements
 import pynixify.nixpkgs_sources
-from pynixify.base import Package
+from pynixify.base import Package, parse_version
 from pynixify.nixpkgs_sources import (
     NixpkgsData,
     load_nixpkgs_data,
@@ -152,6 +152,12 @@ def main():
             "executed by pynixify. If it isn't specified, it will be set to "
             "the number of CPUs in the system."
         ))
+    parser.add_argument(
+        '--ignore-packages',
+        metavar='IGNORED_PACKAGES',
+        help=(
+            "Comma-separated list of packages which we don't want to load."
+        ))
     args = parser.parse_args()
 
     asyncio.run(_main_async(
@@ -165,6 +171,7 @@ def main():
         ignore_test_requirements_for=args.ignore_tests.split(',') if args.ignore_tests else [],
         max_jobs=args.max_jobs,
         generate_only_overlay=args.overlay_only,
+        ignore_packages=set(args.ignore_packages.split(',')) if args.ignore_packages else {},
     ))
 
 async def _main_async(
@@ -177,7 +184,8 @@ async def _main_async(
         ignore_test_requirements_for: List[str],
         load_all_test_requirements: bool,
         max_jobs: Optional[int],
-        generate_only_overlay:bool):
+        generate_only_overlay:bool,
+        ignore_packages: set[str]):
 
     if nixpkgs is not None:
         pynixify.nixpkgs_sources.NIXPKGS_URL = nixpkgs
@@ -189,6 +197,17 @@ async def _main_async(
         load_test_requirements_for, ignore_test_requirements_for,
         load_all_test_requirements)
 
+    for ipkg in list(ignore_packages):
+        package = PyPIPackage(
+            pypi_name=ipkg,
+            download_url='',
+            sha256='',
+            version=parse_version('0.1dev'),
+            pypi_cache=version_chooser.pypi_data.pypi_cache,
+            dummy=True,
+        )
+        version_chooser._local_packages[canonicalize_name(ipkg)] = package
+
     if local is not None:
         await version_chooser.require_local(local, Path.cwd())
 
@@ -197,7 +216,7 @@ async def _main_async(
         with open(requirement_file) as fp:
             for r in parse_requirements(fp.read()):
                 # Convert from Requirement.parse to Requirement
-                all_requirements.append(Requirement(str(r)))
+                    all_requirements.append(Requirement(str(r)))
     for req_ in requirements:
         all_requirements.append(Requirement(req_))
 
@@ -215,6 +234,8 @@ async def _main_async(
     package: PyPIPackage
 
     async def write_package_expression(package: PyPIPackage):
+        if package.dummy:
+            return
         reqs: ChosenPackageRequirements
         reqs = ChosenPackageRequirements.from_package_requirements(
             await evaluate_package_requirements(package),
