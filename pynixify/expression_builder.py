@@ -173,7 +173,7 @@ def build_overlay_expr(overlays: Mapping[str, Path]):
                         ${'' if path.is_absolute() else './'}${str(path).replace('/default.nix', '')} {};
 
             % endfor
-    }""").render(overlays=overlays)
+    }""").render(overlays=sorted(overlays))
 
 def build_overlayed_nixpkgs(
         overlays: Mapping[str, Path],
