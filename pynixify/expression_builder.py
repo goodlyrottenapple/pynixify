@@ -165,6 +165,12 @@ def build_nix_expression(
     return expression_template.render(DISCLAIMER=DISCLAIMER, **locals())
 
 def build_overlay_expr(overlays: Mapping[str, Path]):
+    # Sort dictionary keys to ensure pynixify/nixpkgs.nix will have the
+    # same contents in different pynixify runs.
+    overlays = {
+        k: overlays[k]
+        for k in sorted(overlays.keys())
+    }
     return Template("""
     self: super: {
             % for (package_name, path) in overlays.items():
@@ -173,7 +179,7 @@ def build_overlay_expr(overlays: Mapping[str, Path]):
                         ${'' if path.is_absolute() else './'}${str(path).replace('/default.nix', '')} {};
 
             % endfor
-    }""").render(overlays=sorted(overlays))
+    }""").render(overlays=overlays)
 
 def build_overlayed_nixpkgs(
         overlays: Mapping[str, Path],
